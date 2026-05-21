@@ -220,21 +220,18 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
       return `data:${mimetype};base64,${b64}`;
     }
 
-    // Dynamic animation styles — Ken Burns effect for real video feel
+    // Ken Burns animations using only valid Creatomate types
     const animStyles = [
-      // Zoom in from center
+      // Zoom in
       [{ time: 0, duration, easing: 'linear', type: 'scale', from: '100%', to: '115%' }],
       // Zoom out
       [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '100%' }],
-      // Pan left to right
-      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
-       { time: 0, duration, easing: 'linear', type: 'translate', from_x: '-5%', to_x: '5%' }],
-      // Pan right to left
-      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
-       { time: 0, duration, easing: 'linear', type: 'translate', from_x: '5%', to_x: '-5%' }],
+      // Pan left
+      [{ time: 0, duration, easing: 'linear', type: 'pan', x_from: '-8%', x_to: '8%' }],
+      // Pan right
+      [{ time: 0, duration, easing: 'linear', type: 'pan', x_from: '8%', x_to: '-8%' }],
       // Pan up
-      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
-       { time: 0, duration, easing: 'linear', type: 'translate', from_y: '3%', to_y: '-3%' }],
+      [{ time: 0, duration, easing: 'linear', type: 'pan', y_from: '5%', y_to: '-5%' }],
     ];
 
     // Image slides with Ken Burns effect
