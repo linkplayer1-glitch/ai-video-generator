@@ -190,7 +190,10 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
     elements.push({
       type: 'video', track: 1, time: 0, duration: 3,
       source: 'https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4',
-      volume: 0, fit: 'cover'
+      volume: 0, fit: 'cover',
+      width: '100%', height: '100%',
+      x: '50%', y: '50%',
+      x_alignment: '50%', y_alignment: '50%'
     });
     elements.push({
       type: 'text', track: 2, time: 0.3, duration: 2.7,
@@ -220,18 +223,18 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
       return `data:${mimetype};base64,${b64}`;
     }
 
-    // Ken Burns animations using only valid Creatomate types
+    // Ken Burns animations — cinematic camera movement
     const animStyles = [
-      // Zoom in
-      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '100%', to: '115%' }],
-      // Zoom out
-      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '100%' }],
+      // Slow zoom in
+      [{ easing: 'linear', type: 'scale', from: '100%', to: '120%' }],
+      // Slow zoom out
+      [{ easing: 'linear', type: 'scale', from: '120%', to: '100%' }],
       // Pan left
-      [{ time: 0, duration, easing: 'linear', type: 'pan', x_from: '-8%', x_to: '8%' }],
+      [{ easing: 'linear', type: 'pan', x_from: '-10%', x_to: '10%' }],
       // Pan right
-      [{ time: 0, duration, easing: 'linear', type: 'pan', x_from: '8%', x_to: '-8%' }],
-      // Pan up
-      [{ time: 0, duration, easing: 'linear', type: 'pan', y_from: '5%', y_to: '-5%' }],
+      [{ easing: 'linear', type: 'pan', x_from: '10%', x_to: '-10%' }],
+      // Pan up with zoom
+      [{ easing: 'linear', type: 'scale', from: '110%', to: '120%' }],
     ];
 
     // Image slides with Ken Burns effect
@@ -241,9 +244,17 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
       const anim = animStyles[i % animStyles.length];
 
       elements.push({
-        type: 'image', track: 1,
-        time, duration,
+        type: 'image',
+        track: 1,
+        time,
+        duration,
         source: imgUrl,
+        width: '100%',
+        height: '100%',
+        x: '50%',
+        y: '50%',
+        x_alignment: '50%',
+        y_alignment: '50%',
         fit: 'cover',
         animations: anim
       });
@@ -294,8 +305,11 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
     const payload = {
       output_format: 'mp4',
       source: {
-        width: 1920, height: 1080, frame_rate: 25,
+        width: 1920,
+        height: 1080,
+        frame_rate: 25,
         duration: totalDur,
+        fill_color: '#000000',
         elements
       }
     };
