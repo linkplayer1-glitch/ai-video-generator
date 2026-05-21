@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Video Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #18181f;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --accent: #c8ff00;
+      --accent2: #7c3aed;
+      --text: #f0f0f5;
+      --muted: #888899;
+      --danger: #ff4757;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 3rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span {
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .badge {
+      background: rgba(200,255,0,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(200,255,0,0.25);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Main form card */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.25rem;
+    }
+
+    .prompt-area {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 1rem 1.25rem;
+      resize: none;
+      min-height: 120px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus { border-color: var(--accent2); }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      appearance: none;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus { border-color: var(--accent2); }
+
+    .generate-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 14px 24px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .generate-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
+    .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Output */
+    #output { display: none; }
+
+    .video-header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .video-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+
+    .video-synopsis {
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+      font-size: 0.95rem;
+    }
+
+    .meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Production notes */
+    .production-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .prod-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+    }
+
+    .prod-card h4 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .prod-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* Scenes */
+    .scenes-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .scene-count {
+      background: var(--accent2);
+      color: #fff;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .scene-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s;
+    }
+
+    .scene-card:hover { border-color: var(--border2); }
+
+    .scene-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      gap: 1rem;
+    }
+
+    .scene-num {
+      background: var(--accent2);
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .scene-info { flex: 1; }
+    .scene-info h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .scene-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .scene-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .scene-field {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .scene-field h5 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .scene-field p { font-size: 13px; line-height: 1.6; }
+
+    .scene-narration {
+      background: rgba(124,58,237,0.08);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 1rem;
+    }
+
+    .scene-narration h5 {
+      font-size: 11px;
+      color: #a78bfa;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .scene-narration p {
+      font-size: 14px;
+      line-height: 1.7;
+      font-style: italic;
+      color: #c4b5fd;
+    }
+
+    .color-palette {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .color-swatch:hover::after {
+      content: attr(data-hex);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #222;
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .refine-btn {
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refine-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    /* Refine modal */
+    .refine-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .refine-overlay.active { display: flex; }
+
+    .refine-modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .refine-modal h3 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .refine-modal textarea {
+      min-height: 80px;
+      margin-bottom: 1rem;
+    }
+
+    .modal-btns { display: flex; gap: 10px; }
+
+    .btn-secondary {
+      flex: 1;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      padding: 10px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-secondary:hover { background: var(--surface2); }
+
+    .btn-primary {
+      flex: 2;
+      background: var(--accent2);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+
+    /* Export */
+    .export-bar {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-bottom: 1.5rem;
+    }
+
+    .export-btn {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .export-btn:hover { background: var(--surface2); }
+
+    .render-btn { background: rgba(200,255,0,0.1); border-color: rgba(200,255,0,0.3); color: var(--accent); font-weight: 600; }
+    .render-btn:hover { background: rgba(200,255,0,0.18); }
+    .render-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Mode tabs */
+    .mode-tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+    .mode-tab { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .mode-tab.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+    .mode-tab:hover:not(.active) { background: var(--surface2); }
+
+    /* Image upload area */
+    .upload-area { border: 2px dashed var(--border2); border-radius: 14px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 1rem; }
+    .upload-area:hover { border-color: var(--accent2); background: rgba(124,58,237,0.05); }
+    .upload-area.dragover { border-color: var(--accent); background: rgba(200,255,0,0.05); }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .upload-title { font-family: 'Syne', sans-serif; font-weight: 700; margin-bottom: 4px; }
+    .upload-sub { font-size: 13px; color: var(--muted); }
+    .upload-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+    .preview-item { position: relative; width: 80px; height: 80px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border2); }
+    .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+    .preview-remove { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); border: none; color: #fff; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    #img2vid-panel { display: none; }
+    #txt2vid-panel { display: block; }
+
+    /* Loading */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10,10,15,0.92);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .loading-overlay.active { display: flex; }
+
+    .loader {
+      width: 60px;
+      height: 60px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .loading-sub {
+      font-size: 13px;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* Error */
+    .error-msg {
+      background: rgba(255,71,87,0.1);
+      border: 1px solid rgba(255,71,87,0.3);
+      border-radius: 12px;
+      color: #ff6b7a;
+      padding: 1rem 1.25rem;
+      font-size: 14px;
+      display: none;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 640px) {
+      .form-row { grid-template-columns: 1fr; }
+      .scene-grid { grid-template-columns: 1fr; }
+      .production-grid { grid-template-columns: 1fr; }
+      .video-title { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">🎬</div>
+        <h1>FrameAI <span>Video Generator</span></h1>
+      </div>
+      <div class="badge">Powered by Claude</div>
+    </header>
+
+    <!-- Form -->
+    <div class="form-card">
+
+      <!-- Mode tabs -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="switchMode('txt2vid')">✦ Text to Video</button>
+        <button class="mode-tab" onclick="switchMode('img2vid')">🖼 Image to Video</button>
+      </div>
+
+      <!-- Text to Video Panel -->
+      <div id="txt2vid-panel">
+        <p class="form-title">Describe your video</p>
+        <div class="prompt-area">
+          <textarea id="prompt" placeholder="e.g. A cinematic short film about a lone astronaut discovering an ancient alien signal on a distant moon, told through silence and visuals..." rows="4"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Visual Style</label>
+            <select id="style">
+              <option value="cinematic">🎥 Cinematic</option>
+              <option value="documentary">📹 Documentary</option>
+              <option value="animated">✨ Animated</option>
+              <option value="corporate">💼 Corporate</option>
+              <option value="social media">📱 Social Media</option>
+              <option value="music video">🎵 Music Video</option>
+              <option value="horror">😱 Horror</option>
+              <option value="comedy">😂 Comedy</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Duration</label>
+            <select id="duration">
+              <option value="30-second">30 seconds</option>
+              <option value="60-second" selected>1 minute</option>
+              <option value="2-minute">2 minutes</option>
+              <option value="5-minute">5 minutes</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Aspect Ratio</label>
+            <select id="aspectRatio">
+              <option value="16:9">16:9 Widescreen</option>
+              <option value="9:16">9:16 Vertical</option>
+              <option value="1:1">1:1 Square</option>
+              <option value="4:3">4:3 Classic</option>
+            </select>
+          </div>
+        </div>
+        <div class="error-msg" id="error-msg"></div>
+        <button class="generate-btn" id="generate-btn" onclick="generateVideo()">
+          <span>✦</span> Generate Video Plan
+        </button>
+      </div>
+
+      <!-- Image to Video Panel -->
+      <div id="img2vid-panel">
+        <p class="form-title">Upload your images</p>
+
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('img-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="upload-icon">📁</div>
+          <div class="upload-title">Click to upload or drag & drop images</div>
+          <div class="upload-sub">JPG, PNG, WEBP — up to 10 images</div>
+          <input type="file" id="img-input" accept="image/*" multiple style="display:none" onchange="handleImageSelect(event)">
+        </div>
+
+        <div class="upload-preview" id="upload-preview"></div>
+
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label style="display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Video Title / Caption</label>
+          <input type="text" id="img-title" placeholder="e.g. My Vacation Highlights 2025" style="width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1rem;padding:10px 14px;outline:none;">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Seconds per image</label>
+            <select id="img-duration">
+              <option value="3">3 seconds</option>
+              <option value="5" selected>5 seconds</option>
+              <option value="7">7 seconds</option>
+              <option value="10">10 seconds</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Transition Effect</label>
+            <select id="img-transition">
+              <option value="fade">Fade</option>
+              <option value="slide">Slide</option>
+              <option value="zoom">Zoom</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Add Music</label>
+            <select id="img-music">
+              <option value="cinematic">🎵 Cinematic</option>
+              <option value="upbeat">⚡ Upbeat</option>
+              <option value="calm">🌊 Calm</option>
+              <option value="none">🔇 No Music</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="error-msg" id="img-error-msg"></div>
+        <button class="generate-btn" id="img-generate-btn" onclick="generateImageVideo()">
+          <span>🖼</span> Create Video from Images
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Output -->
+    <div id="output">
+      <div class="export-bar">
+        <button class="export-btn" onclick="exportJSON()">⬇ Export JSON</button>
+        <button class="export-btn" onclick="exportMarkdown()">📄 Export Script</button>
+        <button class="export-btn render-btn" id="render-btn" onclick="renderVideo()">🎬 Render with json2video</button>
+      </div>
+
+      <!-- Render status panel -->
+      <div id="render-panel" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.5rem; margin-bottom:1.5rem;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:1rem;">
+          <div id="render-spinner" style="width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+          <div>
+            <p style="font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;margin:0;" id="render-status-title">Submitting to json2video...</p>
+            <p style="font-size:13px;color:var(--muted);margin:0;" id="render-status-sub">Your video is being queued for rendering</p>
+          </div>
+        </div>
+        <div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:1rem;">
+          <div id="render-progress-fill" style="height:100%;width:5%;background:var(--accent);border-radius:4px;transition:width 1s ease;"></div>
+        </div>
+        <div id="render-result" style="display:none; margin-top:0.5rem;">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:10px;">Project ID: <code id="render-project-id" style="font-size:12px;background:var(--surface2);padding:2px 8px;border-radius:6px;color:var(--accent);"></code></p>
+          <a id="render-download-link" href="#" target="_blank" style="background:var(--accent);color:#000;border-radius:10px;padding:10px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">⬇ Download Rendered Video</a>
+        </div>
+        <div id="render-error" style="display:none;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);border-radius:10px;padding:10px 14px;font-size:13px;color:#ff6b7a; margin-top:0.5rem;"></div>
+      </div>
+
+      <div class="video-header" id="video-header"></div>
+
+      <div class="production-grid" id="production-grid"></div>
+
+      <div class="scenes-title">
+        Scenes <span class="scene-count" id="scene-count">0</span>
+      </div>
+
+      <div id="scenes-container"></div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loading">
+    <div class="loader"></div>
+    <p class="loading-text">Directing your vision...</p>
+    <p class="loading-sub">Claude is crafting scenes, narration, and production notes</p>
+  </div>
+
+  <!-- Refine modal -->
+  <div class="refine-overlay" id="refine-overlay">
+    <div class="refine-modal">
+      <h3>✦ Refine Scene</h3>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:1rem;" id="refine-scene-title"></p>
+      <textarea id="refine-instruction" placeholder="e.g. Make the lighting more dramatic, add a rain effect, change the mood to melancholic..."></textarea>
+      <div class="modal-btns">
+        <button class="btn-secondary" onclick="closeRefine()">Cancel</button>
+        <button class="btn-primary" id="refine-confirm-btn" onclick="submitRefine()">✦ Refine Scene</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Mode switching ─────────────────────────────────────────
+    function switchMode(mode) {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('txt2vid-panel').style.display = mode === 'txt2vid' ? 'block' : 'none';
+      document.getElementById('img2vid-panel').style.display = mode === 'img2vid' ? 'block' : 'none';
+      document.getElementById('output').style.display = 'none';
+    }
+
+    // ── Image upload handling ──────────────────────────────────
+    let uploadedImages = [];
+
+    function handleImageSelect(e) {
+      addImages(Array.from(e.target.files));
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById('upload-area').classList.add('dragover');
+    }
+
+    function handleDragLeave(e) {
+      document.getElementById('upload-area').classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      document.getElementById('upload-area').classList.remove('dragover');
+      addImages(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+    }
+
+    function addImages(files) {
+      files.slice(0, 10 - uploadedImages.length).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          uploadedImages.push({ file, dataUrl: e.target.result });
+          renderPreviews();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderPreviews() {
+      const container = document.getElementById('upload-preview');
+      container.innerHTML = uploadedImages.map((img, i) => `
+        <div class="preview-item">
+          <img src="${img.dataUrl}" alt="Image ${i+1}">
+          <button class="preview-remove" onclick="removeImage(${i})">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function removeImage(i) {
+      uploadedImages.splice(i, 1);
+      renderPreviews();
+    }
+
+    // ── Image to Video generation ──────────────────────────────
+    async function generateImageVideo() {
+      if (uploadedImages.length === 0) {
+        document.getElementById('img-error-msg').textContent = 'Please upload at least one image.';
+        document.getElementById('img-error-msg').style.display = 'block';
+        return;
+      }
+      document.getElementById('img-error-msg').style.display = 'none';
+      document.getElementById('img-generate-btn').disabled = true;
+      document.getElementById('img-generate-btn').textContent = '⏳ Creating video...';
+      showLoading(true);
+
+      try {
+        const formData = new FormData();
+        uploadedImages.forEach((img, i) => formData.append('images', img.file));
+        formData.append('title', document.getElementById('img-title').value || 'My Video');
+        formData.append('duration', document.getElementById('img-duration').value);
+        formData.append('transition', document.getElementById('img-transition').value);
+        formData.append('music', document.getElementById('img-music').value);
+
+        const res = await fetch('/api/images-to-video', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        // Show render panel
+        document.getElementById('output').style.display = 'block';
+        document.getElementById('render-panel').style.display = 'block';
+        document.getElementById('render-project-id').textContent = data.project;
+        document.getElementById('render-result').style.display = 'block';
+        document.getElementById('render-status-title').textContent = 'Rendering your slideshow video...';
+        document.getElementById('render-status-sub').textContent = 'Usually takes 1-2 minutes';
+        document.getElementById('render-progress-fill').style.width = '30%';
+        document.getElementById('render-spinner').style.display = 'block';
+        document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+
+        // Poll status
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          const sr = await fetch(`/api/render/status/${data.project}`);
+          const sd = await sr.json();
+          const pct = Math.min(30 + (attempts / 60) * 65, 92);
+          document.getElementById('render-progress-fill').style.width = pct + '%';
+          const status = sd?.status || '';
+          const url    = sd?.url    || '';
+          if (status === 'done' || (url && url.startsWith('http'))) {
+            clearInterval(poll);
+            document.getElementById('render-progress-fill').style.width = '100%';
+            document.getElementById('render-spinner').style.display = 'none';
+            document.getElementById('render-status-title').textContent = '✅ Video ready!';
+            document.getElementById('render-status-sub').textContent = 'Download it now before link expires!';
+            const link = document.getElementById('render-download-link');
+            link.href = url; link.style.display = 'inline-flex';
+            window.open(url, '_blank');
+          } else if (status === 'failed') {
+            clearInterval(poll);
+            showRenderError('Render failed: ' + (sd?.message || ''));
+          } else if (attempts >= 60) {
+            clearInterval(poll);
+            document.getElementById('render-status-title').textContent = '⚠️ Taking longer than expected...';
+          }
+        }, 5000);
+
+      } catch (err) {
+        document.getElementById('img-error-msg').textContent = err.message;
+        document.getElementById('img-error-msg').style.display = 'block';
+      } finally {
+        showLoading(false);
+        document.getElementById('img-generate-btn').disabled = false;
+        document.getElementById('img-generate-btn').innerHTML = '<span>🖼</span> Create Video from Images';
+      }
+    }
+
+    
+    let refineSceneIndex = null;
+
+    async function generateVideo() {
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!prompt) { showError('Please describe your video first.'); return; }
+
+      clearError();
+      showLoading(true);
+      document.getElementById('output').style.display = 'none';
+      document.getElementById('generate-btn').disabled = true;
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            style: document.getElementById('style').value,
+            duration: document.getElementById('duration').value,
+            aspectRatio: document.getElementById('aspectRatio').value
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Generation failed');
+
+        currentVideo = data.video;
+        renderOutput(data.video);
+        document.getElementById('output').style.display = 'block';
+        document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        showLoading(false);
+        document.getElementById('generate-btn').disabled = false;
+      }
+    }
+
+    function renderOutput(video) {
+      // Header
+      document.getElementById('video-header').innerHTML = `
+        <div class="video-title">${esc(video.title)}</div>
+        <p class="video-synopsis">${esc(video.synopsis)}</p>
+        <div class="meta-pills">
+          <div class="pill"><span class="pill-label">Duration</span> ${esc(video.duration)}</div>
+          <div class="pill"><span class="pill-label">Style</span> ${esc(video.style)}</div>
+          <div class="pill"><span class="pill-label">Scenes</span> ${video.scenes?.length || 0}</div>
+          ${video.productionNotes?.targetAudience ? `<div class="pill"><span class="pill-label">Audience</span> ${esc(video.productionNotes.targetAudience)}</div>` : ''}
+        </div>
+      `;
+
+      // Production notes
+      const pn = video.productionNotes || {};
+      document.getElementById('production-grid').innerHTML = `
+        ${pn.lighting ? `<div class="prod-card"><h4>💡 Lighting</h4><p>${esc(pn.lighting)}</p></div>` : ''}
+        ${pn.music ? `<div class="prod-card"><h4>🎵 Music</h4><p>${esc(pn.music)}</p></div>` : ''}
+        ${pn.colorGrading ? `<div class="prod-card"><h4>🎨 Color Grade</h4><p>${esc(pn.colorGrading)}</p></div>` : ''}
+        ${pn.targetAudience ? `<div class="prod-card"><h4>👥 Target Audience</h4><p>${esc(pn.targetAudience)}</p></div>` : ''}
+      `;
+
+      // Scenes
+      document.getElementById('scene-count').textContent = video.scenes?.length || 0;
+      document.getElementById('scenes-container').innerHTML = (video.scenes || []).map((scene, i) => `
+        <div class="scene-card" id="scene-${i}">
+          <div class="scene-header">
+            <div class="scene-num">${scene.id || i + 1}</div>
+            <div class="scene-info">
+              <h3>${esc(scene.title)}</h3>
+              <div class="scene-meta">
+                <span>⏱ ${esc(scene.duration)}</span>
+                ${scene.mood ? `<span>🎭 ${esc(scene.mood)}</span>` : ''}
+                ${scene.transition ? `<span>→ ${esc(scene.transition)}</span>` : ''}
+              </div>
+            </div>
+            <button class="refine-btn" onclick="openRefine(${i})">✦ Refine</button>
+          </div>
+
+          ${scene.narration ? `
+          <div class="scene-narration">
+            <h5>🎙 Narration / Dialogue</h5>
+            <p>"${esc(scene.narration)}"</p>
+          </div>` : ''}
+
+          <div class="scene-grid">
+            ${scene.description ? `<div class="scene-field"><h5>📷 Visual</h5><p>${esc(scene.description)}</p></div>` : ''}
+            ${scene.cameraWork ? `<div class="scene-field"><h5>🎥 Camera</h5><p>${esc(scene.cameraWork)}</p></div>` : ''}
+            ${scene.sfx ? `<div class="scene-field"><h5>🔊 SFX</h5><p>${esc(scene.sfx)}</p></div>` : ''}
+            ${scene.colorPalette?.length ? `
+              <div class="scene-field">
+                <h5>🎨 Color Palette</h5>
+                <div class="color-palette">
+                  ${scene.colorPalette.map(c => `<div class="color-swatch" style="background:${c}" data-hex="${c}" title="${c}"></div>`).join('')}
+                </div>
+              </div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openRefine(index) {
+      refineSceneIndex = index;
+      const scene = currentVideo.scenes[index];
+      document.getElementById('refine-scene-title').textContent = `Scene ${scene.id}: ${scene.title}`;
+      document.getElementById('refine-instruction').value = '';
+      document.getElementById('refine-overlay').classList.add('active');
+    }
+
+    function closeRefine() {
+      document.getElementById('refine-overlay').classList.remove('active');
+      refineSceneIndex = null;
+    }
+
+    async function submitRefine() {
+      const instruction = document.getElementById('refine-instruction').value.trim();
+      if (!instruction) return;
+
+      const btn = document.getElementById('refine-confirm-btn');
+      btn.disabled = true;
+      btn.textContent = 'Refining...';
+
+      try {
+        const res = await fetch('/api/refine-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scene: currentVideo.scenes[refineSceneIndex],
+            instruction
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        currentVideo.scenes[refineSceneIndex] = data.scene;
+        renderOutput(currentVideo);
+        closeRefine();
+
+        const el = document.getElementById(`scene-${refineSceneIndex}`);
+        if (el) {
+          el.style.borderColor = 'var(--accent)';
+          setTimeout(() => el.style.borderColor = '', 2000);
+        }
+      } catch (err) {
+        alert('Refine failed: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✦ Refine Scene';
+      }
+    }
+
+    async function renderVideo() {
+      if (!currentVideo) return;
+      const btn = document.getElementById('render-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Rendering...';
+
+      const panel = document.getElementById('render-panel');
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      document.getElementById('render-result').style.display = 'none';
+      document.getElementById('render-error').style.display = 'none';
+      document.getElementById('render-status-title').textContent = 'Submitting to Creatomate...';
+      document.getElementById('render-status-sub').textContent = 'Your video is being queued for rendering';
+      document.getElementById('render-progress-fill').style.width = '5%';
+      document.getElementById('render-spinner').style.display = 'block';
+
+      try {
+        const res = await fetch('/api/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video: currentVideo })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || JSON.stringify(data.details));
+
+        const projectId = data.project;
+        document.getElementById('render-project-id').textContent = projectId;
+        document.getElementById('render-result').style.display = 'block';
+        document.getElementById('render-status-title').textContent = 'Rendering in progress...';
+        document.getElementById('render-status-sub').textContent = 'Creatomate is rendering your video — usually takes 1-3 minutes';
+        document.getElementById('render-progress-fill').style.width = '30%';
+
+        // Poll every 5 seconds up to 10 minutes
+        let attempts = 0;
+        const maxAttempts = 120;
+        const poll = setInterval(async () => {
+          attempts++;
+          try {
+            const sr = await fetch(`/api/render/status/${projectId}`);
+            const sd = await sr.json();
+
+            console.log('Poll', attempts, JSON.stringify(sd).slice(0, 200));
+
+            const pct = Math.min(30 + (attempts / maxAttempts) * 62, 92);
+            document.getElementById('render-progress-fill').style.width = pct + '%';
+
+            const status   = sd?.status || '';
+            const movieUrl = typeof sd?.url === 'string' ? sd.url : '';
+            const errMsg   = sd?.message || '';
+
+            console.log(`Status: "${status}" | URL: "${movieUrl}"`);
+
+            if (status === 'done' || (movieUrl && movieUrl.startsWith('http'))) {
+              clearInterval(poll);
+              document.getElementById('render-progress-fill').style.width = '100%';
+              document.getElementById('render-spinner').style.display = 'none';
+              document.getElementById('render-status-title').textContent = '✅ Render complete!';
+              document.getElementById('render-status-sub').textContent = 'Your video is ready — download it now before the link expires!';
+
+              const link = document.getElementById('render-download-link');
+              if (movieUrl && movieUrl.startsWith('http')) {
+                link.href = movieUrl;
+                link.textContent = '⬇ Download Rendered Video';
+                link.style.display = 'inline-flex';
+                // Auto-open in new tab immediately so user can save
+                window.open(movieUrl, '_blank');
+              } else {
+                document.getElementById('render-status-sub').textContent = `Done! Open Creatomate dashboard — Project ID: ${projectId}`;
+                link.href = 'https://app.creatomate.com/';
+                link.textContent = '🔗 Open Creatomate Dashboard';
+                link.style.display = 'inline-flex';
+              }
+
+            } else if (status === 'failed' || status === 'error') {
+              clearInterval(poll);
+              showRenderError('Creatomate render failed: ' + (errMsg || 'check your Creatomate dashboard. Project ID: ' + projectId));
+            } else if (attempts >= maxAttempts) {
+              clearInterval(poll);
+              document.getElementById('render-spinner').style.display = 'none';
+              document.getElementById('render-status-title').textContent = '⚠️ Still rendering...';
+              document.getElementById('render-status-sub').textContent = `Taking longer than expected. Project ID: ${projectId}`;
+            }
+          } catch (pollErr) {
+            console.error('Poll error (skipping):', pollErr);
+            if (attempts >= maxAttempts) {
+              clearInterval(poll);
+              showRenderError('Polling stopped: ' + pollErr.message);
+            }
+          }
+        }, 5000);
+
+      } catch (err) {
+        showRenderError(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🎬 Render with json2video';
+      }
+    }
+
+    function showRenderError(msg) {
+      document.getElementById('render-spinner').style.display = 'none';
+      document.getElementById('render-status-title').textContent = 'Render failed';
+      document.getElementById('render-status-sub').textContent = '';
+      const errEl = document.getElementById('render-error');
+      errEl.style.display = 'block';
+      errEl.textContent = msg;
+    }
+
+    function exportJSON() {
+      if (!currentVideo) return;
+      const blob = new Blob([JSON.stringify(currentVideo, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(currentVideo.title || 'video').replace(/\s+/g, '_')}.json`;
+      a.click();
+    }
+
+    function exportMarkdown() {
+      if (!currentVideo) return;
+      const v = currentVideo;
+      let md = `# ${v.title}\n\n**Style:** ${v.style}  |  **Duration:** ${v.duration}\n\n## Synopsis\n${v.synopsis}\n\n## Production Notes\n`;
+      const pn = v.productionNotes || {};
+      if (pn.lighting) md += `- **Lighting:** ${pn.lighting}\n`;
+      if (pn.music) md += `- **Music:** ${pn.music}\n`;
+      if (pn.colorGrading) md += `- **Color Grade:** ${pn.colorGrading}\n`;
+      md += '\n## Scenes\n\n';
+      (v.scenes || []).forEach((s, i) => {
+        md += `### Scene ${s.id || i+1}: ${s.title}\n*Duration: ${s.duration} | Mood: ${s.mood}*\n\n`;
+        if (s.description) md += `**Visual:** ${s.description}\n\n`;
+        if (s.narration) md += `**Narration:** "${s.narration}"\n\n`;
+        if (s.cameraWork) md += `**Camera:** ${s.cameraWork}\n\n`;
+        if (s.sfx) md += `**SFX:** ${s.sfx}\n\n`;
+        if (s.transition) md += `**Transition:** ${s.transition}\n\n`;
+        md += '---\n\n';
+      });
+
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(v.title || 'script').replace(/\s+/g, '_')}.md`;
+      a.click();
+    }
+
+    function showLoading(v) {
+      document.getElementById('loading').classList.toggle('active', v);
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function clearError() {
+      document.getElementById('error-msg').style.display = 'none';
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.getElementById('prompt').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.ctrlKey) generateVideo();
+    });
+
+    document.getElementById('refine-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('refine-overlay')) closeRefine();
+    });
+  </script>
+</body>
+</html>
