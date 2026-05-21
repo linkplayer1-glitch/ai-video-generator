@@ -202,26 +202,46 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
     });
     time = 3;
 
-    // Image slides
-    files.forEach((file, i) => {
-      const b64 = file.buffer.toString('base64');
-      const dataUrl = `data:${file.mimetype};base64,${b64}`;
+    // Upload each image to imgbb (free) to get a public URL
+    // Creatomate can then download them directly — no base64 size limit
+    const imgbbKey = process.env.IMGBB_API_KEY;
 
-      const scaleAnim = { time: 0, duration: duration, easing: 'linear', type: 'scale',
-        from: i % 2 === 0 ? '100%' : '108%',
-        to:   i % 2 === 0 ? '108%' : '100%'
-      };
+    async function uploadToImgbb(buffer, mimetype) {
+      if (!imgbbKey) {
+        // Fallback: use base64 directly (may hit size limits)
+        return `data:${mimetype};base64,${buffer.toString('base64')}`;
+      }
+      const b64 = buffer.toString('base64');
+      const form = new URLSearchParams();
+      form.append('image', b64);
+      const r = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+        method: 'POST', body: form
+      });
+      const d = await r.json();
+      if (d.success) { console.log(`  imgbb upload OK: ${d.data.url}`); return d.data.url; }
+      console.log(`  imgbb failed: ${JSON.stringify(d)}`);
+      return `data:${mimetype};base64,${b64}`;
+    }
+
+    // Image slides
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const imgUrl = await uploadToImgbb(file.buffer, file.mimetype);
 
       elements.push({
         type: 'image', track: 1,
         time, duration,
-        source: dataUrl,
+        source: imgUrl,
         fit: 'cover',
-        animations: [scaleAnim]
+        animations: [{
+          time: 0, duration, easing: 'linear', type: 'scale',
+          from: i % 2 === 0 ? '100%' : '108%',
+          to:   i % 2 === 0 ? '108%' : '100%'
+        }]
       });
 
       time += duration;
-    });
+    }
 
     // End card
     elements.push({
