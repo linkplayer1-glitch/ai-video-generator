@@ -198,19 +198,17 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
       font_family: 'Montserrat', font_weight: '900', font_size: '9 vmin',
       fill_color: '#FFD700', shadow_color: 'rgba(0,0,0,0.9)', shadow_blur: '3 vmin',
       x_alignment: '50%', y_alignment: '50%', width: '85%',
-      animations: [{ time: 0, duration: 0.8, type: 'fade', fade: 'in', easing: 'ease-in-out' }]
+      animations: [
+        { time: 0, duration: 0.8, type: 'fade', fade: 'in', easing: 'ease-in-out' },
+        { time: 2, duration: 0.7, type: 'fade', fade: 'out', easing: 'ease-in-out' }
+      ]
     });
     time = 3;
 
-    // Upload each image to imgbb (free) to get a public URL
-    // Creatomate can then download them directly — no base64 size limit
     const imgbbKey = process.env.IMGBB_API_KEY;
 
     async function uploadToImgbb(buffer, mimetype) {
-      if (!imgbbKey) {
-        // Fallback: use base64 directly (may hit size limits)
-        return `data:${mimetype};base64,${buffer.toString('base64')}`;
-      }
+      if (!imgbbKey) return `data:${mimetype};base64,${buffer.toString('base64')}`;
       const b64 = buffer.toString('base64');
       const form = new URLSearchParams();
       form.append('image', b64);
@@ -218,39 +216,71 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
         method: 'POST', body: form
       });
       const d = await r.json();
-      if (d.success) { console.log(`  imgbb upload OK: ${d.data.url}`); return d.data.url; }
-      console.log(`  imgbb failed: ${JSON.stringify(d)}`);
+      if (d.success) { console.log(`  imgbb: ${d.data.url}`); return d.data.url; }
       return `data:${mimetype};base64,${b64}`;
     }
 
-    // Image slides
+    // Dynamic animation styles — Ken Burns effect for real video feel
+    const animStyles = [
+      // Zoom in from center
+      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '100%', to: '115%' }],
+      // Zoom out
+      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '100%' }],
+      // Pan left to right
+      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
+       { time: 0, duration, easing: 'linear', type: 'translate', from_x: '-5%', to_x: '5%' }],
+      // Pan right to left
+      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
+       { time: 0, duration, easing: 'linear', type: 'translate', from_x: '5%', to_x: '-5%' }],
+      // Pan up
+      [{ time: 0, duration, easing: 'linear', type: 'scale', from: '115%', to: '115%' },
+       { time: 0, duration, easing: 'linear', type: 'translate', from_y: '3%', to_y: '-3%' }],
+    ];
+
+    // Image slides with Ken Burns effect
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const imgUrl = await uploadToImgbb(file.buffer, file.mimetype);
+      const anim = animStyles[i % animStyles.length];
 
       elements.push({
         type: 'image', track: 1,
         time, duration,
         source: imgUrl,
         fit: 'cover',
-        animations: [{
-          time: 0, duration, easing: 'linear', type: 'scale',
-          from: i % 2 === 0 ? '100%' : '108%',
-          to:   i % 2 === 0 ? '108%' : '100%'
-        }]
+        animations: anim
       });
+
+      // Fade in/out text caption
+      if (title && i === 0) {
+        elements.push({
+          type: 'text', track: 2,
+          time: time + 0.5, duration: duration - 1,
+          text: title,
+          font_family: 'Montserrat', font_weight: '600', font_size: '4 vmin',
+          fill_color: '#ffffff', shadow_color: 'rgba(0,0,0,0.8)', shadow_blur: '2 vmin',
+          x_alignment: '50%', y_alignment: '88%', width: '80%',
+          animations: [
+            { time: 0, duration: 0.5, type: 'fade', fade: 'in', easing: 'ease-in-out' },
+            { time: 'end-0.5', duration: 0.5, type: 'fade', fade: 'out', easing: 'ease-in-out' }
+          ]
+        });
+      }
 
       time += duration;
     }
 
     // End card
     elements.push({
-      type: 'text', track: 2, time: time + 0.5, duration: 3,
+      type: 'text', track: 2, time: time + 0.5, duration: 2.5,
       text: title.toUpperCase(),
       font_family: 'Montserrat', font_weight: '900', font_size: '9 vmin',
       fill_color: '#FFD700', shadow_color: 'rgba(0,0,0,0.9)', shadow_blur: '3 vmin',
       x_alignment: '50%', y_alignment: '50%', width: '85%',
-      animations: [{ time: 0, duration: 1, type: 'fade', fade: 'in', easing: 'ease-in-out' }]
+      animations: [
+        { time: 0, duration: 1, type: 'fade', fade: 'in', easing: 'ease-in-out' },
+        { time: 2, duration: 0.5, type: 'fade', fade: 'out', easing: 'ease-in-out' }
+      ]
     });
 
     // Background music
@@ -263,15 +293,17 @@ app.post('/api/images-to-video', upload.array('images', 10), async (req, res) =>
       });
     }
 
+    const totalDur = time + 3;
     const payload = {
       output_format: 'mp4',
       source: {
         width: 1920, height: 1080, frame_rate: 25,
+        duration: totalDur,
         elements
       }
     };
 
-    console.log(`Sending to Creatomate: ${elements.length} elements, ~${time + 3}s`);
+    console.log(`Sending to Creatomate: ${elements.length} elements, ~${totalDur}s`);
 
     const r = await fetch('https://api.creatomate.com/v1/renders', {
       method: 'POST',
@@ -480,11 +512,13 @@ app.post('/api/render', async (req, res) => {
     });
 
     // ── Build final payload ───────────────────────────────────
+    const totalDuration = time + END_DUR;
     const renderScript = {
       output_format: 'mp4',
       width: 1920,
       height: 1080,
       frame_rate: 25,
+      duration: totalDuration,
       elements: [
         ...videoElements,
         ...textElements
