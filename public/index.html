@@ -626,6 +626,8 @@
       <div class="mode-tabs">
         <button class="mode-tab active" onclick="switchMode('txt2vid')">✦ Text to Video</button>
         <button class="mode-tab" onclick="switchMode('img2vid')">🖼 Image to Video</button>
+        <button class="mode-tab" onclick="switchMode('voiceover')">🎙️ Voiceover</button>
+        <button class="mode-tab" onclick="switchMode('bgremove')">✂️ BG Removal</button>
       </div>
 
       <!-- Text to Video Panel -->
@@ -726,6 +728,116 @@
         </button>
       </div>
 
+      <!-- Voiceover Panel -->
+      <div id="voiceover-panel" style="display:none;">
+        <p class="form-title">🎙️ AI Voiceover Generator</p>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label style="display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Your Text</label>
+          <textarea id="vo-text" placeholder="Type the text you want converted to speech... e.g. In a world where darkness rules, one man stands against the tide." rows="5" style="width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:1rem;padding:1rem;outline:none;resize:none;" oninput="document.getElementById('vo-count').textContent=this.value.length"></textarea>
+          <div style="text-align:right;font-size:12px;color:var(--muted);margin-top:4px;"><span id="vo-count">0</span>/500 characters</div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Voice</label>
+            <select id="vo-voice">
+              <option value="adam">🎭 Adam — Deep Dramatic Male</option>
+              <option value="josh">🎤 Josh — Deep Male</option>
+              <option value="antoni">🗣️ Antoni — Smooth Male</option>
+              <option value="rachel">👩 Rachel — Warm Female</option>
+              <option value="bella">🌸 Bella — Soft Female</option>
+              <option value="elli">💫 Elli — Emotional Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Speed</label>
+            <select id="vo-speed">
+              <option value="0.8">🐢 Slow</option>
+              <option value="1.0" selected>▶️ Normal</option>
+              <option value="1.2">⚡ Fast</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Style</label>
+            <select id="vo-style">
+              <option value="dramatic">🎬 Dramatic</option>
+              <option value="calm">😌 Calm</option>
+              <option value="excited">🔥 Excited</option>
+              <option value="sad">😢 Sad</option>
+            </select>
+          </div>
+        </div>
+        <div id="vo-player" style="display:none;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:1rem;margin-bottom:1rem;">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:8px;">✅ Voiceover ready:</p>
+          <audio id="vo-audio" controls style="width:100%;"></audio>
+          <div style="margin-top:10px;display:flex;gap:10px;">
+            <a id="vo-download" href="#" download="voiceover.mp3" style="background:var(--accent);color:#000;border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;text-decoration:none;">⬇ Download MP3</a>
+          </div>
+        </div>
+        <div class="error-msg" id="vo-error"></div>
+        <button class="generate-btn" id="vo-btn" onclick="generateVoiceover()">
+          <span>🎙️</span> Generate Voiceover
+        </button>
+      </div>
+
+      <!-- Background Removal Panel -->
+      <div id="bgremove-panel" style="display:none;">
+        <p class="form-title">✂️ Background Removal</p>
+        <div class="upload-area" id="bg-upload-area" onclick="document.getElementById('bg-input').click()">
+          <div class="upload-icon">🖼️</div>
+          <div class="upload-title">Click to upload image</div>
+          <div class="upload-sub">JPG, PNG, WEBP — max 10MB</div>
+          <input type="file" id="bg-input" accept="image/*" style="display:none" onchange="handleBgImage(event)">
+        </div>
+        <div id="bg-preview-area" style="display:none;margin-bottom:1rem;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Original</p>
+              <img id="bg-original" style="width:100%;border-radius:10px;border:1px solid var(--border);">
+            </div>
+            <div>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">Background Removed</p>
+              <div id="bg-result-box" style="width:100%;aspect-ratio:1;border-radius:10px;border:1px solid var(--border);background:repeating-conic-gradient(#333 0% 25%,#222 0% 50%) 0 0/16px 16px;display:flex;align-items:center;justify-content:center;">
+                <img id="bg-result" style="width:100%;height:100%;object-fit:contain;border-radius:10px;display:none;">
+                <span id="bg-processing" style="color:var(--muted);font-size:13px;">Processing...</span>
+              </div>
+            </div>
+          </div>
+          <div id="bg-download-bar" style="display:none;margin-top:1rem;display:flex;gap:10px;">
+            <a id="bg-download" href="#" download="background-removed.png" style="background:var(--accent);color:#000;border-radius:8px;padding:10px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;text-decoration:none;">⬇ Download PNG</a>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label>New Background</label>
+            <select id="bg-replace">
+              <option value="none">🪟 Transparent (PNG)</option>
+              <option value="white">⬜ White</option>
+              <option value="black">⬛ Black</option>
+              <option value="blur">🌫️ Blur original</option>
+              <option value="studio">🎬 Studio gradient</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Output Format</label>
+            <select id="bg-format">
+              <option value="png">PNG (transparent)</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Quality</label>
+            <select id="bg-quality">
+              <option value="auto">Auto</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        <div class="error-msg" id="bg-error"></div>
+        <button class="generate-btn" id="bg-btn" onclick="removeBackground()" style="display:none;">
+          <span>✂️</span> Remove Background
+        </button>
+      </div>
+
     </div>
 
     <!-- Output -->
@@ -792,10 +904,111 @@
     function switchMode(mode) {
       document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
       event.target.classList.add('active');
-      document.getElementById('txt2vid-panel').style.display = mode === 'txt2vid' ? 'block' : 'none';
-      document.getElementById('img2vid-panel').style.display = mode === 'img2vid' ? 'block' : 'none';
+      document.getElementById('txt2vid-panel').style.display    = mode === 'txt2vid'   ? 'block' : 'none';
+      document.getElementById('img2vid-panel').style.display    = mode === 'img2vid'   ? 'block' : 'none';
+      document.getElementById('voiceover-panel').style.display  = mode === 'voiceover' ? 'block' : 'none';
+      document.getElementById('bgremove-panel').style.display   = mode === 'bgremove'  ? 'block' : 'none';
       document.getElementById('output').style.display = 'none';
     }
+
+    // ── Voiceover ──────────────────────────────────────────────
+    let lastVoiceUrl = '';
+
+    async function generateVoiceover() {
+      const text  = document.getElementById('vo-text').value.trim();
+      const voice = document.getElementById('vo-voice').value;
+      const style = document.getElementById('vo-style').value;
+      const errEl = document.getElementById('vo-error');
+      errEl.style.display = 'none';
+
+      if (!text) { errEl.textContent = 'Please enter some text.'; errEl.style.display = 'block'; return; }
+      if (text.length > 500) { errEl.textContent = 'Max 500 characters.'; errEl.style.display = 'block'; return; }
+
+      const btn = document.getElementById('vo-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Generating...';
+      document.getElementById('vo-player').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/voiceover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice, style })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        lastVoiceUrl = data.url;
+        const player = document.getElementById('vo-player');
+        document.getElementById('vo-audio').src = data.url;
+        document.getElementById('vo-download').href = data.url;
+        player.style.display = 'block';
+
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🎙️</span> Generate Voiceover';
+      }
+    }
+
+    // ── Background Removal ─────────────────────────────────────
+    let bgImageFile = null;
+
+    function handleBgImage(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      bgImageFile = file;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('bg-original').src = ev.target.result;
+        document.getElementById('bg-preview-area').style.display = 'block';
+        document.getElementById('bg-result').style.display = 'none';
+        document.getElementById('bg-processing').style.display = 'none';
+        document.getElementById('bg-download-bar').style.display = 'none';
+        document.getElementById('bg-btn').style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function removeBackground() {
+      if (!bgImageFile) return;
+      const btn = document.getElementById('bg-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> Removing background...';
+      document.getElementById('bg-processing').style.display = 'block';
+      document.getElementById('bg-result').style.display = 'none';
+      document.getElementById('bg-error').style.display = 'none';
+
+      try {
+        const formData = new FormData();
+        formData.append('image', bgImageFile);
+        formData.append('bg', document.getElementById('bg-replace').value);
+        formData.append('format', document.getElementById('bg-format').value);
+
+        const res = await fetch('/api/remove-bg', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        document.getElementById('bg-result').src = data.url;
+        document.getElementById('bg-result').style.display = 'block';
+        document.getElementById('bg-processing').style.display = 'none';
+        document.getElementById('bg-download').href = data.url;
+        document.getElementById('bg-download-bar').style.display = 'flex';
+
+      } catch (err) {
+        document.getElementById('bg-processing').style.display = 'none';
+        const errEl = document.getElementById('bg-error');
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>✂️</span> Remove Background';
+      }
+    }
+
+    
 
     // ── Image upload handling ──────────────────────────────────
     let uploadedImages = [];

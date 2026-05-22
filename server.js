@@ -10,11 +10,22 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── ElevenLabs TTS — saves MP3 locally and serves it ──────────
-async function generateVoice(text, apiKey) {
+// ── ElevenLabs TTS — generates MP3 and uploads to imgbb ───────
+const ELEVENLABS_VOICES = {
+  'adam':    '29vD33N1CtxCmqQRPOHJ', // Deep dramatic male
+  'rachel':  '21m00Tcm4TlvDq8ikWAM', // Warm female
+  'antoni':  'ErXwobaYiN019PkySvjV', // Well-rounded male
+  'bella':   'EXAVITQu4vr4xnSDxMaL', // Soft female
+  'josh':    'TxGEqnHWrfWFTfGW9XjX', // Deep male
+  'elli':    'MF3mGyEYCl7XYWbV9V6O', // Emotional female
+};
+
+async function generateVoice(text, apiKey, voiceKey = 'adam', voiceSettings = null) {
   try {
-    const voiceId = '29vD33N1CtxCmqQRPOHJ'; // Adam voice
-    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+    const voiceId = ELEVENLABS_VOICES[voiceKey] || ELEVENLABS_VOICES['adam'];
+    const settings = voiceSettings || { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true };
+    console.log(`  Generating voice: ${voiceKey} (${voiceId})`);
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
@@ -22,23 +33,113 @@ async function generateVoice(text, apiKey) {
         'Accept': 'audio/mpeg'
       },
       body: JSON.stringify({
-        text: text.slice(0, 120),
+        text: text.slice(0, 500),
         model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.8 }
+        voice_settings: settings
       })
     });
     if (!r.ok) { console.log(`  ElevenLabs ${r.status}: ${await r.text()}`); return null; }
     const buf = Buffer.from(await r.arrayBuffer());
-    // Save to public folder so Creatomate can download it
+    // Upload to imgbb as base64 (works for audio too as raw file)
+    const imgbbKey = process.env.IMGBB_API_KEY;
+    if (imgbbKey) {
+      const b64 = buf.toString('base64');
+      const form = new URLSearchParams();
+      form.append('image', b64);
+      const up = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}&name=audio_${Date.now()}`, {
+        method: 'POST', body: form
+      });
+      const ud = await up.json();
+      if (ud.success) { console.log(`  Voice uploaded: ${ud.data.url}`); return ud.data.url; }
+    }
+    // Fallback: save locally
     const fname = `voice_${Date.now()}.mp3`;
     const fpath = path.join(__dirname, 'public', 'imgs', fname);
     require('fs').writeFileSync(fpath, buf);
     const host = (process.env.SERVER_HOST || `http://localhost:${PORT}`).replace(/\/$/, '');
-    const url = `${host}/imgs/${fname}`;
-    console.log(`  Voice generated: ${url}`);
-    return url;
+    return `${host}/imgs/${fname}`;
   } catch (e) { console.log(`  Voice error: ${e.message}`); return null; }
 }
+
+// ── /api/voiceover ─────────────────────────────────────────────
+app.post('/api/voiceover', async (req, res) => {
+  const { text, voice, style } = req.body;
+  const elKey = process.env.ELEVENLABS_API_KEY;
+  if (!elKey) return res.status(500).json({ error: 'ELEVENLABS_API_KEY not set. Get free key at elevenlabs.io' });
+  if (!text)  return res.status(400).json({ error: 'text is required' });
+
+  // Style → voice settings
+  const styleSettings = {
+    dramatic: { stability: 0.3, similarity_boost: 0.8, style: 0.7 },
+    calm:     { stability: 0.8, similarity_boost: 0.6, style: 0.1 },
+    excited:  { stability: 0.2, similarity_boost: 0.9, style: 0.9 },
+    sad:      { stability: 0.7, similarity_boost: 0.7, style: 0.5 },
+  };
+
+  try {
+    const url = await generateVoice(text, elKey, voice || 'adam', styleSettings[style] || styleSettings.dramatic);
+    if (!url) return res.status(500).json({ error: 'Voice generation failed — check your ElevenLabs API key' });
+    res.json({ success: true, url });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── /api/remove-bg ─────────────────────────────────────────────
+app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
+  const rbKey = process.env.REMOVEBG_API_KEY;
+  if (!rbKey) return res.status(500).json({ error: 'REMOVEBG_API_KEY not set. Get free key at remove.bg' });
+  if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+
+  try {
+    const bgType  = req.body.bg     || 'none';
+    const format  = req.body.format || 'png';
+    const b64     = req.file.buffer.toString('base64');
+
+    // Build remove.bg request
+    const formData = new URLSearchParams();
+    formData.append('image_file_b64', b64);
+    formData.append('size', 'auto');
+    formData.append('format', format);
+
+    // Background replacement
+    if (bgType === 'white')  formData.append('bg_color', 'white');
+    if (bgType === 'black')  formData.append('bg_color', 'black');
+    if (bgType === 'blur')   formData.append('bg_image_url', ''); // blur not supported — use white
+
+    const r = await fetch('https://api.remove.bg/v1.0/removebg', {
+      method: 'POST',
+      headers: { 'X-Api-Key': rbKey },
+      body: formData
+    });
+
+    if (!r.ok) {
+      const err = await r.json();
+      return res.status(r.status).json({ error: err?.errors?.[0]?.title || 'remove.bg error' });
+    }
+
+    const buf  = Buffer.from(await r.arrayBuffer());
+    const b64out = buf.toString('base64');
+    const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+
+    // Upload to imgbb for public URL
+    const imgbbKey = process.env.IMGBB_API_KEY;
+    if (imgbbKey) {
+      const form = new URLSearchParams();
+      form.append('image', b64out);
+      const up = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+        method: 'POST', body: form
+      });
+      const ud = await up.json();
+      if (ud.success) return res.json({ success: true, url: ud.data.url });
+    }
+
+    // Fallback: return as data URL
+    res.json({ success: true, url: `data:${mime};base64,${b64out}` });
+
+  } catch (err) {
+    console.error('remove-bg error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 function parseDuration(str) {
