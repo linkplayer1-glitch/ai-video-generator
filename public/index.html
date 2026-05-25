@@ -809,28 +809,45 @@
         <div class="form-row" style="margin-bottom:1rem;">
           <div class="form-group">
             <label>New Background</label>
-            <select id="bg-replace">
-              <option value="none">🪟 Transparent (PNG)</option>
+            <select id="bg-replace" onchange="toggleBgOptions()">
+              <option value="transparent">🪟 Transparent</option>
               <option value="white">⬜ White</option>
               <option value="black">⬛ Black</option>
-              <option value="blur">🌫️ Blur original</option>
-              <option value="studio">🎬 Studio gradient</option>
+              <option value="gray">🔲 Gray</option>
+              <option value="color">🎨 Custom Color</option>
+              <option value="studio">🎬 Dark Studio</option>
+              <option value="bg_image">🖼️ Custom Image</option>
             </select>
           </div>
           <div class="form-group">
             <label>Output Format</label>
             <select id="bg-format">
-              <option value="png">PNG (transparent)</option>
+              <option value="png">PNG (best quality)</option>
               <option value="jpg">JPG</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Quality</label>
-            <select id="bg-quality">
-              <option value="auto">Auto</option>
-              <option value="high">High</option>
-            </select>
+          <div class="form-group" id="bg-color-group" style="display:none;">
+            <label>Pick Color</label>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+              <input type="color" id="bg-color-picker" value="#ffffff" style="width:50px;height:38px;border:none;border-radius:8px;cursor:pointer;background:none;">
+              <input type="text" id="bg-color-hex" value="#ffffff" placeholder="#ffffff" style="flex:1;background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:8px;font-size:13px;outline:none;" oninput="syncColorPicker(this.value)">
+            </div>
+            <!-- Quick color swatches -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${['#ffffff','#000000','#ff0000','#00ff00','#0000ff','#ffff00','#ff6600','#ff00ff','#00ffff','#1a1a2e','#16213e','#0f3460','#533483','#2d6a4f','#b5179e'].map(c=>`<div onclick="pickColor('${c}')" style="width:24px;height:24px;background:${c};border-radius:5px;cursor:pointer;border:2px solid var(--border2);" title="${c}"></div>`).join('')}
+            </div>
           </div>
+        </div>
+
+        <!-- Custom background image upload -->
+        <div id="bg-image-group" style="display:none;margin-bottom:1rem;">
+          <label style="display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Upload Background Image</label>
+          <div class="upload-area" style="padding:1rem;" onclick="document.getElementById('bg-bg-input').click()">
+            <div class="upload-icon" style="font-size:1.5rem;">🖼️</div>
+            <div class="upload-title" style="font-size:14px;">Click to upload background</div>
+            <input type="file" id="bg-bg-input" accept="image/*" style="display:none" onchange="previewBgBg(event)">
+          </div>
+          <img id="bg-bg-preview" style="display:none;width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-top:8px;">
         </div>
         <div class="error-msg" id="bg-error"></div>
         <button class="generate-btn" id="bg-btn" onclick="removeBackground()" style="display:none;">
@@ -980,21 +997,34 @@
       document.getElementById('bg-processing').style.display = 'block';
       document.getElementById('bg-result').style.display = 'none';
       document.getElementById('bg-error').style.display = 'none';
+      document.getElementById('bg-download-bar').style.display = 'none';
 
       try {
+        const bgType   = document.getElementById('bg-replace').value;
+        const bgColor  = document.getElementById('bg-color-picker')?.value || '#ffffff';
+        const format   = document.getElementById('bg-format').value;
+        const bgBgFile = document.getElementById('bg-bg-input')?.files?.[0];
+
         const formData = new FormData();
         formData.append('image', bgImageFile);
-        formData.append('bg', document.getElementById('bg-replace').value);
-        formData.append('format', document.getElementById('bg-format').value);
+        formData.append('bg', bgType);
+        formData.append('bg_color', bgColor);
+        formData.append('format', format);
+        if (bgType === 'bg_image' && bgBgFile) {
+          formData.append('bg_image', bgBgFile);
+        }
 
         const res = await fetch('/api/remove-bg', { method: 'POST', body: formData });
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
 
-        document.getElementById('bg-result').src = data.url;
+        // Show result — prefer dataUrl for instant display
+        const displayUrl = data.dataUrl || data.url;
+        document.getElementById('bg-result').src = displayUrl;
         document.getElementById('bg-result').style.display = 'block';
         document.getElementById('bg-processing').style.display = 'none';
         document.getElementById('bg-download').href = data.url;
+        document.getElementById('bg-download').download = `removed_bg.${format}`;
         document.getElementById('bg-download-bar').style.display = 'flex';
 
       } catch (err) {
@@ -1007,6 +1037,44 @@
         btn.innerHTML = '<span>✂️</span> Remove Background';
       }
     }
+
+    function pickColor(hex) {
+      document.getElementById('bg-color-picker').value = hex;
+      document.getElementById('bg-color-hex').value = hex;
+    }
+
+    function syncColorPicker(val) {
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        document.getElementById('bg-color-picker').value = val;
+      }
+    }
+
+    function toggleBgOptions() {
+      const val = document.getElementById('bg-replace').value;
+      document.getElementById('bg-color-group').style.display  = val === 'color'    ? 'block' : 'none';
+      document.getElementById('bg-image-group').style.display  = val === 'bg_image' ? 'block' : 'none';
+    }
+
+    function previewBgBg(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const img = document.getElementById('bg-bg-preview');
+        img.src = ev.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Sync color picker with hex input
+    document.addEventListener('DOMContentLoaded', () => {
+      const picker = document.getElementById('bg-color-picker');
+      const hex    = document.getElementById('bg-color-hex');
+      if (picker && hex) {
+        picker.addEventListener('input', () => hex.value = picker.value);
+      }
+    });
 
     
 
