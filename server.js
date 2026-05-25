@@ -84,56 +84,90 @@ app.post('/api/voiceover', async (req, res) => {
 });
 
 // ── /api/remove-bg ─────────────────────────────────────────────
-app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
+app.post('/api/remove-bg', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'bg_image', maxCount: 1 }
+]), async (req, res) => {
   const rbKey = process.env.REMOVEBG_API_KEY;
-  if (!rbKey) return res.status(500).json({ error: 'REMOVEBG_API_KEY not set. Get free key at remove.bg' });
-  if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+  if (!rbKey) return res.status(500).json({ error: 'REMOVEBG_API_KEY not set. Get free key at remove.bg/api' });
+  if (!req.files?.image?.[0]) return res.status(400).json({ error: 'No image uploaded' });
 
   try {
-    const bgType  = req.body.bg     || 'none';
-    const format  = req.body.format || 'png';
-    const b64     = req.file.buffer.toString('base64');
+    const bgType  = req.body.bg       || 'transparent';
+    const bgColor = req.body.bg_color || '#ffffff';
+    const format  = req.body.format   || 'png';
 
-    // Build remove.bg request
-    const formData = new URLSearchParams();
-    formData.append('image_file_b64', b64);
-    formData.append('size', 'auto');
-    formData.append('format', format);
+    console.log(`\nRemove.bg: type=${bgType} format=${format}`);
 
-    // Background replacement
-    if (bgType === 'white')  formData.append('bg_color', 'white');
-    if (bgType === 'black')  formData.append('bg_color', 'black');
-    if (bgType === 'blur')   formData.append('bg_image_url', ''); // blur not supported — use white
+    // Use fetch with FormData (Node 18+ built-in)
+    const fd = new FormData();
+    
+    // Main image as blob
+    const imgBuf  = req.files.image[0].buffer;
+    const imgBlob = new Blob([imgBuf], { type: req.files.image[0].mimetype });
+    fd.append('image_file', imgBlob, 'image.jpg');
+    fd.append('size', 'hd');
+    fd.append('type', 'auto');
+    fd.append('format', format === 'jpg' ? 'jpg' : 'png');
+
+    // Background options
+    if (bgType === 'color') {
+      fd.append('bg_color', bgColor.replace('#', ''));
+    } else if (bgType === 'white') {
+      fd.append('bg_color', 'ffffff');
+    } else if (bgType === 'black') {
+      fd.append('bg_color', '000000');
+    } else if (bgType === 'gray') {
+      fd.append('bg_color', 'cccccc');
+    } else if (bgType === 'studio') {
+      fd.append('bg_color', '1a1a2e');
+    } else if (bgType === 'bg_image' && req.files?.bg_image?.[0]) {
+      // Custom background image
+      const bgBuf  = req.files.bg_image[0].buffer;
+      const bgBlob = new Blob([bgBuf], { type: req.files.bg_image[0].mimetype });
+      fd.append('bg_image_file', bgBlob, 'background.jpg');
+      console.log(`  Custom bg image: ${bgBuf.length} bytes`);
+    }
+    // transparent = no bg params
 
     const r = await fetch('https://api.remove.bg/v1.0/removebg', {
       method: 'POST',
       headers: { 'X-Api-Key': rbKey },
-      body: formData
+      body: fd
     });
 
     if (!r.ok) {
-      const err = await r.json();
-      return res.status(r.status).json({ error: err?.errors?.[0]?.title || 'remove.bg error' });
+      const errText = await r.text();
+      let errMsg = 'remove.bg API error';
+      try { errMsg = JSON.parse(errText)?.errors?.[0]?.title || errMsg; } catch {}
+      console.log('remove.bg error:', r.status, errText.slice(0, 200));
+      return res.status(r.status).json({ error: errMsg });
     }
 
-    const buf  = Buffer.from(await r.arrayBuffer());
+    const buf    = Buffer.from(await r.arrayBuffer());
     const b64out = buf.toString('base64');
-    const mime = format === 'png' ? 'image/png' : 'image/jpeg';
+    const mime   = format === 'jpg' ? 'image/jpeg' : 'image/png';
+    console.log(`remove.bg success: ${buf.length} bytes`);
 
-    // Upload to imgbb for public URL
+    // Try imgbb upload for public URL
     const imgbbKey = process.env.IMGBB_API_KEY;
     if (imgbbKey) {
-      const form = new URLSearchParams();
-      form.append('image', b64out);
-      const up = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
-        method: 'POST', body: form
-      });
-      const ud = await up.json();
-      if (ud.success) return res.json({ success: true, url: ud.data.url });
+      try {
+        const form = new URLSearchParams();
+        form.append('image', b64out);
+        form.append('name', `bg_removed_${Date.now()}`);
+        const up = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, {
+          method: 'POST', body: form
+        });
+        const ud = await up.json();
+        if (ud.success) {
+          return res.json({ success: true, url: ud.data.url, dataUrl: `data:${mime};base64,${b64out}` });
+        }
+      } catch (e) { console.log('imgbb error:', e.message); }
     }
 
-    // Fallback: return as data URL
-    res.json({ success: true, url: `data:${mime};base64,${b64out}` });
+    // Fallback: data URL directly
+    res.json({ success: true, url: `data:${mime};base64,${b64out}`, dataUrl: `data:${mime};base64,${b64out}` });
 
   } catch (err) {
     console.error('remove-bg error:', err);
